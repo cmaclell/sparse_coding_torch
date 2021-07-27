@@ -87,8 +87,8 @@ class ConvSparseLayer(nn.Module):
 
     def activations(self, images):
         with torch.no_grad():
-            u = nn.Parameter(torch.zeros(images.shape[0], self.out_channels,
-                                         images.shape[2], images.shape[3]))
+            u = nn.Parameter(torch.zeros((images.shape[0], self.out_channels) +
+                                         images.shape[2:]))
             optimizer = torch.optim.AdamW([u], lr=self.activation_lr)
             for i in range(self.activation_iter):
                 u.grad = -self.u_grad(u, images)
