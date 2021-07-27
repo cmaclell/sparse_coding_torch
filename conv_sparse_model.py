@@ -58,8 +58,9 @@ class ConvSparseLayer(nn.Module):
         with torch.no_grad():
             norms = torch.norm(self.filters.reshape(
                 self.out_channels, self.in_channels, -1), dim=2, keepdim=True)
-            norms = torch.max(norms, 1e-12*torch.ones_like(norms)).unsqueeze(
-                3).expand(self.filters.shape)
+            norms = torch.max(norms, 1e-12*torch.ones_like(norms)).view(
+                (self.out_channels, self.in_channels) +
+                len(self.filters.shape[2:])*(1,)).expand(self.filters.shape)
             self.filters.div_(norms)
 
     def reconstructions(self, activations):
