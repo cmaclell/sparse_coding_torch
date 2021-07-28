@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 from torch.nn.functional import conv1d
@@ -15,20 +16,38 @@ class ConvSparseLayer(nn.Module):
     An implementation of a Convolutional Sparse Layer
     """
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1,
-                 padding=1, shrink=0.25, lam=0.5, activation_lr=1e-1,
-                 activation_iter=50, rectifier=True, convo_dim=2):
+                 padding=0, shrink=0.25, lam=0.5, activation_lr=1e-1,
+                 max_activation_iter=200, rectifier=True, convo_dim=2):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
         self.conv_dim = convo_dim
+
+        if isinstance(kernel_size, int):
+            self.kernel_size = self.conv_dim * (kernel_size,)
+        else:
+            self.kernel_size = kernel_size
+
+        if isinstance(stride, int):
+            self.stride = self.conv_dim * (stride,)
+        else:
+            self.stride = stride
+
+        if isinstance(stride, int):
+            self.stride = self.conv_dim * (stride,)
+        else:
+            self.stride = stride
+
+        if isinstance(padding, int):
+            self.padding = self.conv_dim * (padding,)
+        else:
+            self.padding = padding
+
         self.activation_lr = activation_lr
-        self.activation_iter = activation_iter
+        self.max_activation_iter = max_activation_iter
 
         self.filters = nn.Parameter(torch.rand((out_channels, in_channels) +
-                                               self.conv_dim * (kernel_size,)),
+                                               self.kernel_size),
                                     requires_grad=True)
         torch.nn.init.xavier_uniform_(self.filters)
         self.normalize_weights()
@@ -51,7 +70,6 @@ class ConvSparseLayer(nn.Module):
         else:
             raise ValueError("Conv_dim must be 1, 2, or 3")
 
-        self.recon_loss = torch.nn.MSELoss(reduction='mean')
         self.lam = lam
 
     def normalize_weights(self):
@@ -69,15 +87,15 @@ class ConvSparseLayer(nn.Module):
 
     def loss(self, images, activations):
         reconstructions = self.reconstructions(activations)
-        loss = 0.5 * self.recon_loss(images, reconstructions)
+        loss = 0.5 * (1/images.shape[0]) * torch.sum(
+            torch.pow(images - reconstructions, 2))
         loss += self.lam * torch.mean(torch.sum(torch.abs(
             activations.reshape(activations.shape[0], -1)), dim=1))
         return loss
 
     def u_grad(self, u, images):
         acts = self.threshold(u)
-        recon = self.deconvo(acts, self.filters, padding=self.padding,
-                             stride=self.stride)
+        recon = self.reconstructions(acts)
         e = images - recon
         du = -u
         du += self.convo(e, self.filters, padding=self.padding,
@@ -87,12 +105,32 @@ class ConvSparseLayer(nn.Module):
 
     def activations(self, images):
         with torch.no_grad():
-            u = nn.Parameter(torch.zeros((images.shape[0], self.out_channels) +
-                                         images.shape[2:]))
-            optimizer = torch.optim.AdamW([u], lr=self.activation_lr)
-            for i in range(self.activation_iter):
-                u.grad = -self.u_grad(u, images)
-                optimizer.step()
+            output_shape = []
+            if self.conv_dim >= 1:
+                output_shape.append(math.floor(((images.shape[2] + 2 *
+                                               self.padding[0] -
+                                               (self.kernel_size[0] - 1) - 1) /
+                                              self.stride[0]) + 1))
+            if self.conv_dim >= 2:
+                output_shape.append(math.floor(((images.shape[3] + 2 *
+                                               self.padding[1] -
+                                               (self.kernel_size[1] - 1) - 1) /
+                                              self.stride[1]) + 1))
+            if self.conv_dim >= 3:
+                output_shape.append(math.floor(((images.shape[4] + 2 *
+                                               self.padding[2] -
+                                               (self.kernel_size[2] - 1) - 1) /
+                                              self.stride[2]) + 1))
+            # print('output shape', output_shape)
+
+            u = nn.Parameter(torch.zeros([images.shape[0], self.out_channels] +
+                                         output_shape))
+            for i in range(self.max_activation_iter):
+                du = self.u_grad(u, images)
+                # print("grad_norm={}, iter={}".format(torch.norm(du), i))
+                u += self.activation_lr * du
+                if torch.norm(du) < 0.01:
+                    break
 
         return self.threshold(u)
 
