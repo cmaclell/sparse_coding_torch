@@ -1,6 +1,8 @@
+import numpy as np
 import torch
 import torchvision
 from matplotlib import pyplot as plt
+from matplotlib import cm
 from sparse_model import SparseLayer
 
 
@@ -18,6 +20,23 @@ def load_mnist_data():
     return train_loader
 
 
+def plot_filters(filters):
+    num_filters = filters.shape[2]
+    ncol = int(np.sqrt(num_filters))
+    nrow = int(np.sqrt(num_filters))
+
+    fig, axes = plt.subplots(ncols=ncol, nrows=nrow,
+                             constrained_layout=True)
+
+    ims = {}
+    for i in range(num_filters):
+        r = i // ncol
+        c = i % ncol
+        ims[(r, c)] = axes[r, c].imshow(filters[:, :, i], cmap=cm.Greys_r)
+
+    plt.show()
+
+
 if __name__ == "__main__":
     train_loader = load_mnist_data()
     example_data, example_targets = next(iter(train_loader))
@@ -28,9 +47,9 @@ if __name__ == "__main__":
     imgs = example_data[idx:idx+num_img, 0, :, :]
     sparse_layer = SparseLayer(imgs.shape[1], imgs.shape[2], num_filters)
 
-    learning_rate = 1e-2
-    filter_optimizer = torch.optim.AdamW(sparse_layer.parameters(),
-                                         lr=learning_rate)
+    learning_rate = 1e-3
+    filter_optimizer = torch.optim.Adam(sparse_layer.parameters(),
+                                        lr=learning_rate)
 
     # for _ in range(20):
     #     activations = sparse_layer(imgs)
@@ -78,3 +97,5 @@ if __name__ == "__main__":
         plt.yticks([])
 
     plt.show()
+
+    # plot_filters(sparse_layer.filters.cpu().detach())

@@ -9,11 +9,11 @@ class SparseLayer(nn.Module):
     An implementation of a Sparse Layer
     """
     def __init__(self, image_width, image_height, num_filters, shrink=0.25,
-                 lam=0.5, activation_lr=1e-1, activation_iter=50,
+                 lam=0.5, activation_lr=1e-1, max_activation_iter=500,
                  rectifier=True):
         super().__init__()
         self.activation_lr = activation_lr
-        self.activation_iter = activation_iter
+        self.max_activation_iter = max_activation_iter
 
         self.filters = nn.Parameter(
             torch.rand((image_width, image_height, num_filters)),
@@ -27,7 +27,6 @@ class SparseLayer(nn.Module):
         else:
             self.threshold = nn.Softshrink(shrink)
 
-        self.recon_loss = torch.nn.MSELoss(reduction='mean')
         self.lam = 0.5
 
     def normalize_weights(self):
@@ -43,16 +42,17 @@ class SparseLayer(nn.Module):
 
     def loss(self, images, activations):
         reconstructions = self.reconstructions(activations)
-        loss = 0.5 * self.recon_loss(images, reconstructions)
+        loss = 0.5 * (1/images.shape[0]) * torch.sum(
+            torch.pow(images - reconstructions, 2))
         loss += self.lam * torch.mean(torch.sum(torch.abs(
-            activations), dim=1))
+            activations.reshape(activations.shape[0], -1)), dim=1))
         return loss
 
     def u_grad(self, u, excite, inhibit):
         act = self.threshold(u)
         du = -u
-        du += excite - torch.matmul(act, inhibit)
-        du += act
+        du += excite
+        du -= torch.matmul(act, inhibit)
         return du
 
     def activations(self, images):
@@ -64,13 +64,16 @@ class SparseLayer(nn.Module):
                 (-1, self.filters.shape[2])).T,
                                    self.filters.reshape(
                                        (-1, self.filters.shape[2])))
+            inhibit = inhibit - inhibit.diag().diag()
 
             u = nn.Parameter(torch.zeros((images.shape[0],
                                          self.filters.shape[-1])))
-            optimizer = torch.optim.AdamW([u], lr=1e-1)
-            for i in range(50):
-                u.grad = -self.u_grad(u, excite, inhibit)
-                optimizer.step()
+            for i in range(self.max_activation_iter):
+                du = self.u_grad(u, excite, inhibit)
+                # print("grad_norm={}, iter={}".format(torch.norm(du), i))
+                u += self.activation_lr * du
+                if torch.norm(du) < 0.01:
+                    break
 
         return self.threshold(u)
 
