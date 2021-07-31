@@ -1,6 +1,8 @@
+import numpy as np
 import torch
 import torchvision
 from matplotlib import pyplot as plt
+from matplotlib import cm
 from conv_sparse_model import ConvSparseLayer
 
 
@@ -18,27 +20,38 @@ def load_mnist_data():
     return train_loader
 
 
+def plot_filters(filters):
+    num_filters = filters.shape[0]
+    ncol = int(np.sqrt(num_filters))
+    nrow = int(np.sqrt(num_filters))
+
+    fig, axes = plt.subplots(ncols=ncol, nrows=nrow,
+                             constrained_layout=True)
+
+    ims = {}
+    for i in range(num_filters):
+        r = i // ncol
+        c = i % ncol
+        ims[(r, c)] = axes[r, c].imshow(filters[i, 0, :, :], cmap=cm.Greys_r)
+
+    plt.show()
+
+
 if __name__ == "__main__":
     train_loader = load_mnist_data()
     example_data, example_targets = next(iter(train_loader))
 
-    idx = 0
-    num_img = 32
-    num_filters = 4
-    imgs = example_data[idx:idx+num_img, 0, :, :]
     sparse_layer = ConvSparseLayer(in_channels=1,
-                                   out_channels=num_filters,
-                                   kernel_size=3,
+                                   out_channels=16,
+                                   kernel_size=16,
                                    stride=1,
-                                   padding=1)
+                                   padding=0,
+                                   lam=1.0)
 
-    learning_rate = 1e-2
-    filter_optimizer = torch.optim.AdamW(sparse_layer.parameters(),
-                                         lr=learning_rate)
+    learning_rate = 1e-3
+    filter_optimizer = torch.optim.Adam(sparse_layer.parameters(),
+                                       lr=learning_rate)
 
-    # for _ in range(20):
-    #     activations = sparse_layer(imgs)
-    #     loss = sparse_layer.loss(imgs, activations)
     for epoch in range(3):
         for local_batch, local_labels in train_loader:
             activations = sparse_layer(local_batch[:, :, :, :])
@@ -50,13 +63,13 @@ if __name__ == "__main__":
             filter_optimizer.step()
             sparse_layer.normalize_weights()
 
-    activations = sparse_layer(imgs)
+    activations = sparse_layer(example_data)
     reconstructions = sparse_layer.reconstructions(
         activations).cpu().detach().numpy()
 
     print("SHAPES")
-    print(imgs.shape)
-    print(reconstructions.shape)
+    print(example_data.shape)
+    print(example_data.shape)
 
     fig = plt.figure()
 
@@ -65,10 +78,10 @@ if __name__ == "__main__":
         # original
         plt.subplot(img_to_show, 2, i*2 + 1)
         plt.tight_layout()
-        plt.imshow(example_data[idx+i, 0, :, :], cmap='gray',
+        plt.imshow(example_data[i, 0, :, :], cmap='gray',
                    interpolation='none')
         plt.title("Original Image\nGround Truth: {}".format(
-            example_targets[idx]))
+            example_targets[0]))
         plt.xticks([])
         plt.yticks([])
 
@@ -82,3 +95,5 @@ if __name__ == "__main__":
         plt.yticks([])
 
     plt.show()
+
+    plot_filters(sparse_layer.filters.cpu().detach())
