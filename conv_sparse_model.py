@@ -75,7 +75,7 @@ class ConvSparseLayer(nn.Module):
     def normalize_weights(self):
         with torch.no_grad():
             norms = torch.norm(self.filters.reshape(
-                self.out_channels, self.in_channels, -1), dim=2, keepdim=True)
+                self.out_channels, -1), dim=1, keepdim=True)
             norms = torch.max(norms, 1e-12*torch.ones_like(norms)).view(
                 (self.out_channels, self.in_channels) +
                 len(self.filters.shape[2:])*(1,)).expand(self.filters.shape)
@@ -121,6 +121,7 @@ class ConvSparseLayer(nn.Module):
                                                self.padding[2] -
                                                (self.kernel_size[2] - 1) - 1) /
                                               self.stride[2]) + 1))
+            # print('input shape', images.shape)
             # print('output shape', output_shape)
 
             u = nn.Parameter(torch.zeros([images.shape[0], self.out_channels] +
