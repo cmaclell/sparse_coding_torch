@@ -33,7 +33,7 @@ class SparseLayer(nn.Module):
         self.lam = 0.5
 
     def to(self, device):
-        super().to(self.device)
+        super().to(device)
         self.device = device
 
     def normalize_weights(self):

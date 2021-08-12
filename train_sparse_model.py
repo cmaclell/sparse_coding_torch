@@ -51,7 +51,7 @@ if __name__ == "__main__":
     idx = 0
     num_img = 32
     num_filters = 784
-    imgs = example_data[idx:idx+num_img, 0, :, :].to('cuda:0')
+    imgs = example_data[idx:idx+num_img, 0, :, :].to(device)
     sparse_layer = SparseLayer(imgs.shape[1], imgs.shape[2], num_filters)
     sparse_layer.to(device)
 
