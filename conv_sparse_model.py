@@ -17,10 +17,8 @@ class ConvSparseLayer(nn.Module):
     """
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1,
                  padding=0, shrink=0.25, lam=0.5, activation_lr=1e-1,
-                 max_activation_iter=200, rectifier=True, convo_dim=2,
-                 device='cpu'):
+                 max_activation_iter=200, rectifier=True, convo_dim=2):
         super().__init__()
-        self.device = device
 
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -50,8 +48,7 @@ class ConvSparseLayer(nn.Module):
         self.max_activation_iter = max_activation_iter
 
         self.filters = nn.Parameter(torch.rand((out_channels, in_channels) +
-                                               self.kernel_size,
-                                               device=self.device),
+                                               self.kernel_size),
                                     requires_grad=True)
         torch.nn.init.xavier_uniform_(self.filters)
         self.normalize_weights()
@@ -75,10 +72,6 @@ class ConvSparseLayer(nn.Module):
             raise ValueError("Conv_dim must be 1, 2, or 3")
 
         self.lam = lam
-
-    def to(self, device):
-        super().to(device)
-        self.device = device
 
     def normalize_weights(self):
         with torch.no_grad():
@@ -132,8 +125,8 @@ class ConvSparseLayer(nn.Module):
             # print('input shape', images.shape)
             # print('output shape', output_shape)
 
-            u = nn.Parameter(torch.zeros([images.shape[0], self.out_channels] +
-                                         output_shape, device=self.device))
+            u = torch.zeros([images.shape[0], self.out_channels] +
+                    output_shape, device=self.filters.device)
             for i in range(self.max_activation_iter):
                 du = self.u_grad(u, images)
                 # print("grad_norm={}, iter={}".format(torch.norm(du), i))

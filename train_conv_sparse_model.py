@@ -54,9 +54,9 @@ if __name__ == "__main__":
                                    stride=1,
                                    padding=0,
                                    lam=1.0, 
-                                   activation_lr=1e-2,
-                                   device=device
+                                   activation_lr=1e-2
                                    )
+    sparse_layer.to(device)
 
     learning_rate = 1e-3
     filter_optimizer = torch.optim.Adam(sparse_layer.parameters(),

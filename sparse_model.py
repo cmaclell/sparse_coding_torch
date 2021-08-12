@@ -10,16 +10,14 @@ class SparseLayer(nn.Module):
     """
     def __init__(self, image_width, image_height, num_filters, shrink=0.25,
                  lam=0.5, activation_lr=1e-1, max_activation_iter=500,
-                 rectifier=True, device='cpu'):
+                 rectifier=True):
         super().__init__()
-        self.device = device
 
         self.activation_lr = activation_lr
         self.max_activation_iter = max_activation_iter
 
         self.filters = nn.Parameter(
-            torch.rand((image_width, image_height, num_filters),
-                device=self.device),
+            torch.rand((image_width, image_height, num_filters)),
             requires_grad=True)
         torch.nn.init.xavier_uniform_(self.filters)
         self.normalize_weights()
@@ -31,10 +29,6 @@ class SparseLayer(nn.Module):
             self.threshold = nn.Softshrink(shrink)
 
         self.lam = 0.5
-
-    def to(self, device):
-        super().to(device)
-        self.device = device
 
     def normalize_weights(self):
         with torch.no_grad():
@@ -73,8 +67,8 @@ class SparseLayer(nn.Module):
                                        (-1, self.filters.shape[2])))
             inhibit = inhibit - inhibit.diag().diag()
 
-            u = nn.Parameter(torch.zeros((images.shape[0],
-                self.filters.shape[-1]), device=self.device))
+            u = torch.zeros((images.shape[0],
+                self.filters.shape[-1]), device=self.filters.device)
             for i in range(self.max_activation_iter):
                 du = self.u_grad(u, excite, inhibit)
                 # print("grad_norm={}, iter={}".format(torch.norm(du), i))
