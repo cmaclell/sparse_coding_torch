@@ -6,8 +6,8 @@ from matplotlib import cm
 from sparse_model import SparseLayer
 
 
-def load_mnist_data():
-    batch_size_train = 64
+def load_mnist_data(batch_size):
+    batch_size_train = batch_size
     train_loader = torch.utils.data.DataLoader(
         torchvision.datasets.MNIST('~/Downloads/mnist/', train=True,
                                    download=True,
@@ -15,8 +15,9 @@ def load_mnist_data():
                                        torchvision.transforms.ToTensor(),
                                        torchvision.transforms.Normalize(
                                            (0.1307,), (0.3081,))
-                                   ])), batch_size=batch_size_train,
-        shuffle=True)
+                                       ])), batch_size=batch_size_train,
+                                   shuffle=True)
+
     return train_loader
 
 
@@ -38,14 +39,21 @@ def plot_filters(filters):
 
 
 if __name__ == "__main__":
-    train_loader = load_mnist_data()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    if device == "cpu":
+        batch_size = 64
+    else:
+        batch_size = 4096
+
+    train_loader = load_mnist_data(batch_size)
     example_data, example_targets = next(iter(train_loader))
 
     idx = 0
     num_img = 32
     num_filters = 784
-    imgs = example_data[idx:idx+num_img, 0, :, :]
+    imgs = example_data[idx:idx+num_img, 0, :, :].to('cuda:0')
     sparse_layer = SparseLayer(imgs.shape[1], imgs.shape[2], num_filters)
+    sparse_layer.to(device)
 
     learning_rate = 1e-3
     filter_optimizer = torch.optim.Adam(sparse_layer.parameters(),
@@ -54,8 +62,10 @@ if __name__ == "__main__":
     # for _ in range(20):
     #     activations = sparse_layer(imgs)
     #     loss = sparse_layer.loss(imgs, activations)
-    for epoch in range(3):
+    for epoch in range(10):
         for local_batch, local_labels in train_loader:
+            local_batch = local_batch.to(device)
+            local_labels = local_labels.to(device)
             activations = sparse_layer(local_batch[:, 0, :, :])
             loss = sparse_layer.loss(local_batch[:, 0, :, :], activations)
             print('loss={}'.format(loss))
