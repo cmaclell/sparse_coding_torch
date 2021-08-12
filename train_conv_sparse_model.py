@@ -6,8 +6,8 @@ from matplotlib import cm
 from conv_sparse_model import ConvSparseLayer
 
 
-def load_mnist_data():
-    batch_size_train = 64
+def load_mnist_data(batch_size):
+    batch_size_train = batch_size
     train_loader = torch.utils.data.DataLoader(
         torchvision.datasets.MNIST('~/Downloads/mnist/', train=True,
                                    download=True,
@@ -38,15 +38,25 @@ def plot_filters(filters):
 
 
 if __name__ == "__main__":
-    train_loader = load_mnist_data()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    if device == "cpu":
+        batch_size = 8
+    else:
+        batch_size = 64
+
+    train_loader = load_mnist_data(batch_size)
     example_data, example_targets = next(iter(train_loader))
+    example_data = example_data.to(device)
 
     sparse_layer = ConvSparseLayer(in_channels=1,
-                                   out_channels=16,
-                                   kernel_size=16,
+                                   out_channels=64,
+                                   kernel_size=8,
                                    stride=1,
                                    padding=0,
-                                   lam=1.0)
+                                   lam=1.0, 
+                                   activation_lr=1e-2,
+                                   device=device
+                                   )
 
     learning_rate = 1e-3
     filter_optimizer = torch.optim.Adam(sparse_layer.parameters(),
@@ -54,6 +64,8 @@ if __name__ == "__main__":
 
     for epoch in range(3):
         for local_batch, local_labels in train_loader:
+            local_batch = local_batch.to(device)
+            local_labels = local_labels.to(device)
             activations = sparse_layer(local_batch[:, :, :, :])
             loss = sparse_layer.loss(local_batch[:, :, :, :], activations)
             print('loss={}'.format(loss))
