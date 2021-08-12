@@ -7,11 +7,11 @@ from matplotlib.animation import FuncAnimation
 from conv_sparse_model import ConvSparseLayer
 
 
-def load_balls_data():
+def load_balls_data(batch_size):
     with open('ball_videos.npy', 'rb') as fin:
         ball_videos = torch.tensor(np.load(fin)).float()
 
-    batch_size = 1
+    batch_size = batch_size
     train_loader = torch.utils.data.DataLoader(ball_videos,
                                                batch_size=batch_size,
                                                shuffle=True)
@@ -70,7 +70,13 @@ def plot_filters(filters):
 
 
 if __name__ == "__main__":
-    train_loader = load_balls_data()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    if device == "cpu":
+        batch_size = 1
+    else:
+        batch_size = 32
+
+    train_loader = load_balls_data(batch_size)
 
     example_data = next(iter(train_loader))
 
@@ -78,12 +84,13 @@ if __name__ == "__main__":
                                    out_channels=4,
                                    kernel_size=5,
                                    stride=1,
-                                   padding=2,
+                                   padding=0,
                                    convo_dim=3,
                                    rectifier=True,
                                    shrink=0.25,
                                    lam=0.5,
-                                   max_activation_iter=200)
+                                   max_activation_iter=200,
+                                   device=device)
 
     learning_rate = 1e-2
     filter_optimizer = torch.optim.Adam(sparse_layer.parameters(),
@@ -91,7 +98,7 @@ if __name__ == "__main__":
 
     for epoch in range(100):
         for local_batch in train_loader:
-            local_batch = example_data
+            local_batch = local_batch.to(device)
             t1 = time.perf_counter()
             activations = sparse_layer(local_batch)
             t2 = time.perf_counter()
@@ -104,7 +111,6 @@ if __name__ == "__main__":
             loss.backward()
             filter_optimizer.step()
             sparse_layer.normalize_weights()
-            break
 
     activations = sparse_layer(example_data[:1])
     reconstructions = sparse_layer.reconstructions(
