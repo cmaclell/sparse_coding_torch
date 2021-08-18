@@ -58,12 +58,19 @@ def plot_original_vs_recon(original, reconstruction, idx=0):
 
 def plot_filters(filters):
     num_filters = filters.shape[0]
-    ncol = int(np.sqrt(num_filters))
-    nrow = int(np.sqrt(num_filters))
+    ncol = 3
+    # ncol = int(np.sqrt(num_filters))
+    # nrow = int(np.sqrt(num_filters))
     T = filters.shape[2]
+    
+    if num_filters // ncol == num_filters / ncol:
+        nrow = num_filters // ncol
+    else:
+        nrow = num_filters // ncol + 1
 
     fig, axes = plt.subplots(ncols=ncol, nrows=nrow,
-                             constrained_layout=True)
+                             constrained_layout=True,
+                             figsize=(ncol*2, nrow*2))
 
     ims = {}
     for i in range(num_filters):
@@ -75,11 +82,11 @@ def plot_filters(filters):
     def update(i):
         t = i % T
         for i in range(num_filters):
-            r = i // nrow
-            c = i % nrow
+            r = i // ncol
+            c = i % ncol
             ims[(r, c)].set_data(filters[i, 0, t, :, :])
 
-    return FuncAnimation(plt.gcf(), update, interval=1000/30)
+    return FuncAnimation(plt.gcf(), update, interval=1000/20)
 
 
 if __name__ == "__main__":
