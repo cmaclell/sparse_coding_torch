@@ -18,6 +18,21 @@ def load_balls_data(batch_size):
 
     return train_loader
 
+def plot_video(video):
+
+    # create two subplots
+    ax = plt.gca()
+    ax.set_title("Video")
+
+    T = video.shape[1]
+    im = ax.imshow(video[0, 0, :, :],
+                     cmap=cm.Greys_r)
+
+    def update(i):
+        t = i % T
+        im.set_data(video[0, t, :, :])
+
+    return FuncAnimation(plt.gcf(), update, interval=1000/20)
 
 def plot_original_vs_recon(original, reconstruction, idx=0):
 
@@ -27,7 +42,7 @@ def plot_original_vs_recon(original, reconstruction, idx=0):
     ax1.set_title("Original")
     ax2.set_title("Reconstruction")
 
-    T = example_data.shape[2]
+    T = original.shape[2]
     im1 = ax1.imshow(original[idx, 0, 0, :, :],
                      cmap=cm.Greys_r)
     im2 = ax2.imshow(reconstruction[idx, 0, 0, :, :],
@@ -38,8 +53,7 @@ def plot_original_vs_recon(original, reconstruction, idx=0):
         im1.set_data(original[idx, 0, t, :, :])
         im2.set_data(reconstruction[idx, 0, t, :, :])
 
-    _ = FuncAnimation(plt.gcf(), update, interval=1000/30)
-    plt.show()
+    return FuncAnimation(plt.gcf(), update, interval=1000/30)
 
 
 def plot_filters(filters):
@@ -65,8 +79,7 @@ def plot_filters(filters):
             c = i % nrow
             ims[(r, c)].set_data(filters[i, 0, t, :, :])
 
-    _ = FuncAnimation(plt.gcf(), update, interval=1000/30)
-    plt.show()
+    return FuncAnimation(plt.gcf(), update, interval=1000/30)
 
 
 if __name__ == "__main__":
