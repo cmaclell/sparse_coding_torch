@@ -20,8 +20,12 @@ def load_balls_data(batch_size):
 
 def plot_video(video):
 
-    # create two subplots
+    fig = plt.gcf()
     ax = plt.gca()
+    
+    DPI = fig.get_dpi()
+    fig.set_size_inches(video.shape[2]/float(DPI), video.shape[3]/float(DPI))
+
     ax.set_title("Video")
 
     T = video.shape[1]
