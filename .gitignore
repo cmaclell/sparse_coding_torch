@@ -1,5 +1,7 @@
 ball_videos.npy
 
+.python-version
+
 *.swp
 *.swo
 *~

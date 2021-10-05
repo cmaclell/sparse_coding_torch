@@ -12,18 +12,32 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torchvision.io import read_video
 import torchvision as tv
+from torch import nn
 
 class MinMaxScaler(object):
     """
     Transforms each channel to the range [0, 1].
     """
-    def __init__(self, min_val=0, max_val=255):
+    def __init__(self, min_val=0, max_val=254):
         self.min_val = min_val
         self.max_val = max_val
     
     def __call__(self, tensor):
         return (tensor - self.min_val) / (self.max_val - self.min_val)
 
+class VideoGrayScaler(nn.Module):
+    
+    def __init__(self):
+        super().__init__()
+        self.grayscale = tv.transforms.Grayscale(num_output_channels=1)
+        
+    def forward(self, video):
+        # shape = channels, time, width, height
+        video = self.grayscale(video.swapaxes(-4, -3).swapaxes(-2, -1))
+        video = video.swapaxes(-4, -3).swapaxes(-2, -1)
+        print(video.shape)
+        return video
+    
 
 class VideoLoader(Dataset):
     
@@ -34,7 +48,7 @@ class VideoLoader(Dataset):
         self.labels = [name for name in listdir(video_path) if isdir(join(video_path, name))]
         self.videos = []
         for label in self.labels:
-            self.videos.extend([(label, abspath(join(video_path, label, f))) for f in listdir(join(video_path, label)) if isfile(join(video_path, label, f))])
+            self.videos.extend([(label, abspath(join(video_path, label, f)), f) for f in listdir(join(video_path, label)) if isfile(join(video_path, label, f))])
             
         self.cache = {}
         
@@ -48,26 +62,27 @@ class VideoLoader(Dataset):
             return self.cache[index]
         
         label = self.videos[index][0]
+        filename = self.videos[index][2]
         video, _, info = read_video(self.videos[index][1])
         # print(info)
         video = torch.swapaxes(video, 1, 3)
         
         # print('length', len(video))
         if self.num_frames:
-            video = video[:self.num_frames]
+            video = video[-self.num_frames:]
             
             if len(video) < self.num_frames:
                 padding = torch.zeros(self.num_frames - len(video), video.shape[1], video.shape[2], video.shape[3])
                 video = torch.cat((video, padding))
-        
-        if self.transform:
-            video = self.transform(video)
             
         video = video.swapaxes(0, 1).swapaxes(2, 3)
         
-        self.cache[index] = (label, video)
+        if self.transform:
+            video = self.transform(video)
+        
+        self.cache[index] = (label, video, filename)
             
-        return label, video
+        return label, video, filename
         
     def __len__(self):
         return len(self.videos)

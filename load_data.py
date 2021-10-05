@@ -19,21 +19,68 @@ def load_balls_data(batch_size):
     return train_loader
 
 def load_bamc_data(batch_size):   
-    video_path = "/home/cm3786@drexel.edu/bamc_data/"
+    video_path = "/shared_data/bamc_data"
     
-    scale = 0.2
+    scale = 0.401
     
-    base_width = 1920
-    base_height = 1080
+    # base_width = 1920
+    # base_height = 1080
+    # cropped_width = round(140/320 * base_width)
+    # cropped_height = round(140/180 * base_height)
     
-    cropped_width = round(140/320 * base_width)
-    cropped_height = round(140/180 * base_height)
+    base_width = 1440
+    base_height = 454
+    
+    cropped_width = round(0.7 * base_width)
+    cropped_height = base_height
     
     width = round(cropped_width * scale)
     height = round(cropped_height * scale)
     
     transforms = torchvision.transforms.Compose([torchvision.transforms.Grayscale(num_output_channels=1),
-                                                 torchvision.transforms.CenterCrop(size=(cropped_height, cropped_width)),
+                                                 torchvision.transforms.CenterCrop(size=(cropped_width, cropped_height)),
+                                                 torchvision.transforms.Resize(size=(width, height)), 
+                                                 MinMaxScaler(0, 255)])
+    dataset = VideoLoader(video_path, transform=transforms, num_frames=60)
+    
+    targets = dataset.get_labels()
+    
+    train_idx, test_idx = train_test_split(np.arange(len(targets)), test_size=0.2, shuffle=True, stratify=targets)
+    
+    train_sampler = torch.utils.data.SubsetRandomSampler(train_idx)
+    test_sampler = torch.utils.data.SubsetRandomSampler(test_idx)
+    
+    train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
+                                               # shuffle=True,
+                                               sampler=train_sampler)
+    test_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
+                                                    # shuffle=True,
+                                                    sampler=test_sampler)
+
+    return train_loader, test_loader
+
+
+def load_bamc_data2(batch_size):   
+    video_path = "/shared_data/cropped_pleural_lines/"
+    
+    scale = 0.401
+    
+    # base_width = 1920
+    # base_height = 1080
+    # cropped_width = round(140/320 * base_width)
+    # cropped_height = round(140/180 * base_height)
+    
+    base_width = 1440
+    base_height = 454
+    
+    cropped_width = round(0.7 * base_width)
+    cropped_height = base_height
+    
+    width = round(cropped_width * scale)
+    height = round(cropped_height * scale)
+    
+    transforms = torchvision.transforms.Compose([torchvision.transforms.Grayscale(num_output_channels=1),
+                                                 torchvision.transforms.CenterCrop(size=(cropped_width, cropped_height)),
                                                  torchvision.transforms.Resize(size=(width, height)), 
                                                  MinMaxScaler(0, 255)])
     dataset = VideoLoader(video_path, transform=transforms, num_frames=60)
