@@ -35,10 +35,9 @@ class VideoGrayScaler(nn.Module):
         # shape = channels, time, width, height
         video = self.grayscale(video.swapaxes(-4, -3).swapaxes(-2, -1))
         video = video.swapaxes(-4, -3).swapaxes(-2, -1)
-        print(video.shape)
+        # print(video.shape)
         return video
     
-
 class VideoLoader(Dataset):
     
     def __init__(self, video_path, transform=None, num_frames=None):
@@ -95,7 +94,7 @@ class VideoClipLoader(Dataset):
         
         self.videos = []
         for label in self.labels:
-            self.videos.extend([(label, abspath(join(video_path, label, f))) for f in listdir(join(video_path, label)) if isfile(join(video_path, label, f))])
+            self.videos.extend([(label, abspath(join(video_path, label, f)), f) for f in listdir(join(video_path, label)) if isfile(join(video_path, label, f))])
             
         #for v in self.videos:
         #    video, _, info = read_video(v[1])
@@ -105,7 +104,7 @@ class VideoClipLoader(Dataset):
         if not frames_between_clips:
             frames_between_clips = clip_length_in_frames
             
-        vc = VideoClips([path for label, path in self.videos],
+        vc = VideoClips([path for _, path, _ in self.videos],
                         clip_length_in_frames=clip_length_in_frames,
                         frame_rate=frame_rate,
                        frames_between_clips=frames_between_clips)
@@ -116,10 +115,10 @@ class VideoClipLoader(Dataset):
             try:
                 clip, _, _, vid_idx = vc.get_clip(i)
                 clip = clip.swapaxes(1, 3).swapaxes(2, 3)
+                clip = clip.swapaxes(0, 1)
                 if self.transform:
                     clip = self.transform(clip)
-                clip = clip.swapaxes(0, 1)
-                self.clips.append((self.videos[vid_idx][0], clip))
+                self.clips.append((self.videos[vid_idx][0], clip, self.videos[vid_idx][2]))
                 self.video_idx.append(vid_idx)
             except Exception:
                 pass
@@ -137,12 +136,12 @@ class VideoClipLoader(Dataset):
         return len(self.clips)
 
 if __name__ == "__main__":
-    video_path = "/home/cm3786@drexel.edu/bamc_data/"
+    video_path = "/shared_data/bamc_data/"
     
-    transforms = tv.transforms.Compose([tv.transforms.Grayscale(num_output_channels=1),
-                                        tv.transforms.Resize(size=(320, 180))])
+    transforms = tv.transforms.Compose([VideoGrayScaler()])
 
-    dataset = VideoLoader(video_path, transform=transforms, num_frames=60)
+    # dataset = VideoLoader(video_path, transform=transforms, num_frames=60)
+    dataset = VideoClipLoader(video_path, transform=transforms, clip_length_in_frames=20)
     #for data in dataset:
     #    print(data[0], data[1].shape)
 
@@ -152,5 +151,5 @@ if __name__ == "__main__":
         shuffle=True)
     
     for data in loader:
-        print(data[0], data[1].shape)
+        print(data[0], data[1].shape, data[2])
         #print(data)
